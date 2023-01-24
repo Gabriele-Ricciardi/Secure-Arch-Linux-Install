@@ -15,7 +15,7 @@ A complete guide to replicate my Arch Linux setup. It includes minimal partition
 
 ### Initial checks
 1. Boot the live installation medium.
-2. We are going to use EFI in order to use the secure boot features; thus, check the boot mode:
+2. We are going to use UEFI in order to use the secure boot features; thus, check the boot mode:
 ```
 ls /sys/firmware/efi/efivars
 ``` 
@@ -112,3 +112,141 @@ mkfs.fat -F 32 /dev/sda1
 mkdir /mnt/efi
 mount /dev/sda1 /mnt/efi
 ```
+## Installation steps
+At this point the partitions have been created and formatted and are ready for the actual system install.
+
+### Review the Mirror list
+You may want to review the mirror list and pick a couple of servers that are near your (internet) location.
+```
+cat /etc/pacman.d/mirrorlist
+```
+To select a server, simply uncomment it by removing the `#` in front of it.
+
+### Base system install
+Install a basic set of packages.
+```
+pacstrap /mnt base base-devel linux linux-firmware networkmanager man-db man-pages texinfo vim
+```
+Here you already have some room for customisation. The first 4 packages, `base base-devel linux linux-firmware`, are "mandatory" (unless you want to run a custom kernel or hand-pick the basic system utilities). `Networkmanager` is highly recommended to have a working internet connection (wireless included), but you can pick a similar alternative here. `man-db man-pages texinfo` are required to consult the manual pages which, on a Arch Linux system, are [fundamental](https://wiki.archlinux.org/title/arch_terminology#RTFM). `vim` is my text editor of choice, you can pick another one.
+
+### Generate the File System Table
+Generate the fstab file to preserve your file system layout.
+```
+genfstab -U /mnt >> /mnt/etc/fstab
+```
+Review the file for any misconfiguration.
+```
+cat /mnt/etc/fstab
+```
+You should see that `/dev/mapper/cryptroot` is mounted as `/`, and has `ext4` formatting, while `/dev/sda1` (in standard configurations) is mounted as `/efi`, and has `vfat`/`fat32` formatting.
+
+## Configure the system
+Now the base system is installed, but is not fully working and needs some configuration.
+### Change root
+Chroot into the newly installed system
+```
+arch-chroot /mnt
+```
+Now your base root will be `/mnt`, so that it will be like "normally" using your new system. Take in mind this `live USB boot` - `partition mount` - `change root` procedure, as this is the standard recovery procedure in case the system becomes unbootable.
+
+### Set time zone
+Set the time zone. In my case it will be Rome time zone.
+```
+ln -sf /usr/share/zoneinfo/Europe/Rome /etc/localtime
+```
+
+Set the Real Time Clock (RTC) from the system time (usually UTC).
+```
+hwclock --systohc
+```
+In case you are dual booting with Windows, read [here](https://wiki.archlinux.org/title/System_time#UTC_in_Microsoft_Windows).
+
+### Localisation
+Edite the locale file and choose the needed locale. In my case `en_GB.UTF-8 UTF-8`.
+```
+vim /etc/locale.gen
+```
+Generate the locale.
+```
+locale-gen
+```
+Create the `locale.conf` file and set the `LANG` variable. In my case `LANG=en_GB.UTF-8`
+```
+vim /etc/locale.conf
+```
+
+### Network configuration
+Create the configuration file and choose a name for the hostname by simply writing it into the file, e.g. `myArch`.
+```
+vim /etc/hostname
+```
+Set the hosts in `/etc/hosts`. The file should look something like this:
+```
+127.0.0.1 localhost
+127.0.1.1 myArch
+::1       localhost
+```
+You may want to enable the `NetworkManager` service, so that you do not need to start it manually at each boot.
+```
+systemctl enable NetworkManager.service
+```
+
+### Set the root password
+Set the root password. You know the drill about passwords. Anyway, just be reminded that in case the system is expected to offer any kind of networking service, such as `SSH` connections, extra care should be applied when considering a root password complexity and lenght.
+
+### Install the bootloader
+This is where things get more interesting. I recommend a critical read of the [Archwiki's GRUB - UEFI page](https://wiki.archlinux.org/title/GRUB#UEFI_systems). Yes, that is kind of a rabbit hole of manuals, but that is how you learn things. Also, you should have already done this.
+
+Install the required packages
+```
+pacman -S grub efibootmgr
+```
+Setup the initial ramdisk environment by modifying the `HOOKS` variable in the `/etc/mkinitcpio.conf` file, so that it will support encryption. An example is as follows:
+```
+HOOKS=(base udev autodetect keyboard consolefont modconf block encrypt filesystems fsck)
+```
+
+Configure GRUB to allow booting from `/boot` on a LUKS1 encrypted partition. Do it by setting in `/etc/default/grub`
+```
+...
+GRUB_ENABLE_CRYPTODISK=y
+...
+GRUB_CMDLINE_LINUX=" ... cryptdevice=UUID=device-UUID:cryptroot root=/dev/mapper/cryptroot ... "
+...
+```
+Where `device-UUID` is your encrypted device UUID. It can be retrieved by
+```
+lsblk -dno UUID /dev/sda2
+```
+
+Now recreate the initramfs image
+```
+mkinitcpio -P
+```
+Install GRUB
+```
+grub-install --target=x86_64-efi --efi-directory=/efi --bootloader-id=GRUB --recheck
+```
+> Note: I had some problems reinstalling GRUB with this configuration while chroot-ing into the system. GRUB would complain that it could not find the `/boot` partition mount point, although `/boot` was a simple directory inside `/`. I will investigate further about it, but in the meantime, as a workaround, simply exit from chroot-ing and install GRUB from outside the system. For example, with the previous configuration:
+```
+grub-install --target=x86_64-efi --efi-directory=/mnt/efi --boot-directory=/mnt/boot --bootloader-id=GRUB --recheck
+```
+> Remember to modify as above the `/etc/default/grub` file also in the external live USB system.
+
+Generate GRUB configuration file.
+``
+grub-mkconfig -o /boot/grub/grub.cfg
+``
+
+### Install microcode updates
+
+Install the [microcode](https://wiki.archlinux.org/title/microcode) updates relative to your CPU manufacturer to ensure system stability and security. So, either Intel
+```
+pacman -S intel-ucode
+```
+or AMD.
+``
+pacman -S amd-ucode
+``
+
+### Avoid encryption password double prompt
