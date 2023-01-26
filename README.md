@@ -192,7 +192,11 @@ systemctl enable NetworkManager.service
 ```
 
 ### Set the root password
-Set the root password. You know the drill about passwords. Anyway, just be reminded that in case the system is expected to offer any kind of networking service, such as `SSH` connections, extra care should be applied when considering a root password complexity and lenght.
+Set the root password.
+```
+passwd
+```
+You know the drill about passwords. Anyway, just be reminded that in case the system is expected to offer any kind of networking service, such as `SSH` connections, extra care should be applied when considering a root password complexity and lenght.
 
 ### Install the bootloader
 This is where things get more interesting. I recommend a critical read of the [Archwiki's GRUB - UEFI page](https://wiki.archlinux.org/title/GRUB#UEFI_systems). Yes, that is kind of a rabbit hole of manuals, but that is how you learn things. Also, you should have already done this.
@@ -234,9 +238,9 @@ grub-install --target=x86_64-efi --efi-directory=/mnt/efi --boot-directory=/mnt/
 > Remember to modify as above the `/etc/default/grub` file also in the external live USB system.
 
 Generate GRUB configuration file.
-``
+```
 grub-mkconfig -o /boot/grub/grub.cfg
-``
+```
 
 ### Install microcode updates
 
@@ -245,8 +249,40 @@ Install the [microcode](https://wiki.archlinux.org/title/microcode) updates rela
 pacman -S intel-ucode
 ```
 or AMD.
-``
+```
 pacman -S amd-ucode
-``
+```
 
 ### Avoid encryption password double prompt
+With the current setup, at boot you will be prompted twice for the encryption password. This happens because the first time it is asked by GRUB to unlock the LUKS1 encrypted partition, `cryptroot`, the second time for the initramfs. This section explains how to configure the system to ask the password only once at boot, in GRUB. The way this works is by embedding a keyfile in the initramfs. This procedure is taken from the relative [Archwiki article](https://wiki.archlinux.org/title/dm-crypt/Encrypting_an_entire_system#Avoiding_having_to_enter_the_passphrase_twice).
+
+Create a keyfile and add it as LUKS key
+```
+dd bs=512 count=4 if=/dev/random of=/root/cryptroot.keyfile iflag=fullblock
+chmod 000 /root/cryptroot.keyfile
+cryptsetup -v luksAddKey /dev/sda2 /root/cryptroot.keyfile
+```
+> Note for future investigation: perhaps substitute `/dev/random` with `/dev/urandom`. The second one is the one generally suggested.
+
+Add the keyfile to the initramfs image by modifying `/etc/mkinitcpio.conf`, adding
+```
+FILES=(/root/cryptroot.keyfile)
+```
+Recreate the initramfs image
+```
+mkinitcpio -P
+```
+
+Secure the embedded keyfile
+```
+chmod 600 /boot/initramfs-linux*
+```
+
+Add (i.e. append) the keyfile option in `/etc/default/grub`
+```
+GRUB_CMDLINE_LINUX="... cryptkey=rootfs:/root/cryptroot.keyfile"
+```
+Re-generate the `grub.cfg` file
+```
+grub-mkconfig -o /boot/grub/grub.cfg
+```
