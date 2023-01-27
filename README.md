@@ -286,3 +286,43 @@ Re-generate the `grub.cfg` file
 ```
 grub-mkconfig -o /boot/grub/grub.cfg
 ```
+
+## User configuration
+The system is now able to boot and is fully functional. However, you might want to set a non root user account.
+
+### Install your favourite shell
+Install a different shell, if you wish so. I prefer `zsh`
+```
+pacman -S zsh
+```
+
+### Setup non root user
+Add a new user with home directory, the needed groups (depending on your setup) and the chosen default shell. Then setup a password
+```
+useradd -m -G <the_needed_groups> -s /usr/bin/zsh <username>
+passwd <username>
+```
+
+### Setup sudo
+In a personal computer, usually, this user will be your main user. You may want to use [sudo](https://wiki.archlinux.org/title/sudo) to grant the user the capabilities to manage the computer as root when needed.
+
+Sudo supports fine-grained configurations and checks to decide which user can use higher privileges and when. This is especially important in shared machines. In this case the non root user will have all the privileges as the root user, but consider adjusting this configuration depending on your use case.
+
+Install `sudo`
+```
+pacman -S sudo
+```
+
+Grant root privileges to the main user by modifying the file `/etc/sudoers` using
+```
+visudo
+```
+and adding a line
+```
+<username>  ALL=(ALL:ALL) ALL
+```
+
+### Installing the desktop environment
+Now it is a good time to [install](https://wiki.archlinux.org/title/General_recommendations#Graphical_user_interface) the graphical part of the system, such as the needed drivers and desktop environment. I will expand more upon this in the near future, once the more seucrity-related things are covered.
+
+As a general recommendation, I suggest avoiding the hassle to set all the graphical user interface manually, as I did before, and pick a desktop environment. I switched to [GNOME](https://wiki.archlinux.org/title/GNOME) plus the [Pop Shell extension](https://support.system76.com/articles/pop-shell/) to have window-tiling.
