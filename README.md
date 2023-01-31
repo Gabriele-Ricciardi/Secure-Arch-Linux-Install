@@ -323,6 +323,41 @@ and adding a line
 ```
 
 ### Installing the desktop environment
-Now it is a good time to [install](https://wiki.archlinux.org/title/General_recommendations#Graphical_user_interface) the graphical part of the system, such as the needed drivers and desktop environment. I will expand more upon this in the near future, once the more seucrity-related things are covered.
+Now it is a good time to [install](https://wiki.archlinux.org/title/General_recommendations#Graphical_user_interface) the graphical part of the system, such as the needed drivers and desktop environment. I will expand more upon this in the near future, once the more security-related things are covered.
 
 As a general recommendation, I suggest avoiding the hassle to set all the graphical user interface manually, as I did before, and pick a desktop environment. I switched to [GNOME](https://wiki.archlinux.org/title/GNOME) plus the [Pop Shell extension](https://support.system76.com/articles/pop-shell/) to have window-tiling.
+
+### Secure boot
+With the current encryption setup, the kernel image and the initramfs cannot be modified by an attacker when the data is at rest. However, there is one single file that remains unencrypted and unprotected: `/efi/EFI/GRUB/grubx64.efi`. This file is indeed the bootloader. Because of this, the system is vulnerable to [Evil Maid attacks](https://www.schneier.com/blog/archives/2009/10/evil_maid_attac.html).
+
+Evil maid attacks are relatively sophisticated and complex, and require (temporary) physical access to the target machine. However, it is still interesting to mitigate such vulnerability. A possible solution is using UEFI Secure Boot, and [`cryptboot`](https://github.com/xmikos/cryptboot) makes its setup simple enough.
+
+Start by booting into your machine UEFI firmware setup utility. There, enable Secure Boot. In order to enroll your own keys into the firmware, Secure Boot needs to be in Setup Mode. In order to enter in Setup Mode, clear all preloaded Secure Boot keys. Also, setup the UEFI supervisor password, so that no unauthorised party can boot into the UEFI setup utlity and disable Secure Boot.
+
+Install [`yay`](https://github.com/Jguer/yay#installation) or a similar package manager that handles the AUR packages and then install `cryptboot`
+```
+yay -S cryptboot
+```
+Generate your new UEFI Secure Boot keys
+```
+cryptboot-efikeys create
+```
+Enroll the keys into the UEFI firmware
+```
+cryptboot-efikeys enroll
+```
+`cryptboot` [does not support](https://github.com/xmikos/cryptboot/issues/2) single encrypted partition setups, so it is not possible to simply run the `cryptboot update-grub` command to update and sign the bootloader. Instead, do it manually:
+```
+grub-mkconfig -o /boot/grub/grub.cfg
+grub-install --target=x86_64-efi --boot-directory=/boot --efi-directory=/efi --bootloader-id=GRUB
+
+sudo sed -i ‘s/SecureBoot/SecureB00t/’ /efi/EFI/GRUB/grubx64.efi
+cryptboot-efikeys sign /efi/EFI/GRUB/grubx64.efi
+```
+> Note: if you have just recently installed your system, you can skip the first two commands.
+
+> [More info](https://wejn.org/2021/09/fixing-grub-verification-requested-nobody-cares/) about _that sed_
+
+> Use this commands to update GRUB (i.e. after a GRUB package upgrade, when you are told to run `grub-install` to use the new features included with the update).
+
+Reboot into the UEFI firmware setup utility and verify that Secure Boot is still active. Then reboot and check that you are able to normally boot into your system.
