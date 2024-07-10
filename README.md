@@ -1,5 +1,5 @@
 # Secure-Arch-Linux-Install
-A complete guide to replicate my Arch Linux setup. It includes minimal partitioning, full disk encryption, secure boot, SELinux and more security features.
+A complete guide to replicate my Arch Linux setup. It includes minimal partitioning, full disk encryption, secure boot, and more security features.
 
 ## Premise
 1. Take a read, understand, investigate and take notes about the [official installation guide](https://wiki.archlinux.org/title/Installation_guide).
@@ -325,7 +325,7 @@ and adding a line
 ### Installing the desktop environment
 Now it is a good time to [install](https://wiki.archlinux.org/title/General_recommendations#Graphical_user_interface) the graphical part of the system, such as the needed drivers and desktop environment. I will expand more upon this in the near future, once the more security-related things are covered.
 
-As a general recommendation, I suggest avoiding the hassle to set all the graphical user interface manually, as I did before, and pick a desktop environment. I switched to [GNOME](https://wiki.archlinux.org/title/GNOME) plus the [Pop Shell extension](https://support.system76.com/articles/pop-shell/) to have window-tiling.
+As a general recommendation, I suggest avoiding the hassle to set all the graphical user interface manually, as I did before, and simply pick a desktop environment. I switched to [GNOME](https://wiki.archlinux.org/title/GNOME).
 
 ### Secure boot
 With the current encryption setup, the kernel image and the initramfs cannot be modified by an attacker when the data is at rest. However, there is one single file that remains unencrypted and unprotected: `/efi/EFI/GRUB/grubx64.efi`. This file is indeed the bootloader. Because of this, the system is vulnerable to [Evil Maid attacks](https://www.schneier.com/blog/archives/2009/10/evil_maid_attac.html).
