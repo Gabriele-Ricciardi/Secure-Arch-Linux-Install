@@ -26,8 +26,8 @@ What changed:
 * Make an effort and [verify](https://wiki.archlinux.org/title/Installation_guide#Verify_signature) the ISO GPG signature.
 * [Verify](https://wiki.archlinux.org/title/Installation_guide#Verify_the_boot_mode) the boot mode. This is important as UEFI is needed for Secure Boot.
 * To partition the disks, follow [the new guide mentioned above](https://wiki.archlinux.org/title/Dm-crypt/Encrypting_an_entire_system#LUKS_on_a_partition_with_TPM2_and_Secure_Boot).
-    * Yes, you should perform a [secure erasure](https://wiki.archlinux.org/title/Dm-crypt/Drive_preparation) of the drive when preparing your disk. "Cyber Security" doesn't sound so sexy anymore, huh?
     * My advice here is to stick to the guide to benefit from Systemd automounting.
+    * Yes, you should perform a [secure erasure](https://wiki.archlinux.org/title/Dm-crypt/Drive_preparation) of the drive when preparing your disk. "Cyber Security" doesn't sound so sexy anymore, huh?
 
 ## Installation
 At this point the partitions have been created and formatted and are ready for the actual system install.
