@@ -1,7 +1,7 @@
 # Secure-Arch-Linux-Install
 A collection of personal notes about my Arch Linux setup. It includes minimal partitioning, full disk encryption, secure boot, and more security features.
 
-2025/09/25 update: Since the time of writing this notes, there have been some interesting changes in Arch Linux. [This new official guide](https://wiki.archlinux.org/title/Dm-crypt/Encrypting_an_entire_system#LUKS_on_a_partition_with_TPM2_and_Secure_Boot) is available and is quite similar to this setup. Even though I use Arch (btw), I am not a fan of customisation. I like (good) stock systems. Indeed, I have changed some of my configurations in this guide to better adhere to some new standards shown in that guide (like [systemd GPT partition automounting](https://wiki.archlinux.org/title/Systemd#GPT_partition_automounting)).
+2025/09/25 update: Since the time of writing this notes, there have been some interesting changes in Arch Linux. [This new official guide](https://wiki.archlinux.org/title/Dm-crypt/Encrypting_an_entire_system#LUKS_on_a_partition_with_TPM2_and_Secure_Boot) is available and is quite similar to my original setup. Even though I use Arch (btw), I am not a fan of customisation. I like (good) stock systems. Indeed, I have changed much of my previous configuration to better adhere to some new standards shown in that guide (like [systemd GPT partition automounting](https://wiki.archlinux.org/title/Systemd#GPT_partition_automounting)).
 
 What changed:
 
@@ -11,6 +11,11 @@ What changed:
    * This means setting the correct partitions type GUID so `fstab` is not needed anymore.
 * No more `GRUB`. I use `systemd-boot` instead.
    * This means no more encryption password double prompt problem, so no more keyfile.
+ * Secure Boot configuration now uses `systemd-ukify`, and not [`cryptboot`](https://github.com/xmikos/cryptboot) (which I had long since replaced with `sbctl` anyway).
+   * This means the AUR is not required anymore for this setup.
+ * I now use Plymouth
+   * This makes the booting process look very nice!
+ * I have uploaded some of my configuration files
 
 ## Premise
 1. Take a read, understand, investigate and take notes about the [official installation guide](https://wiki.archlinux.org/title/Installation_guide).
@@ -42,12 +47,41 @@ pacstrap /mnt base base-devel linux linux-firmware networkmanager man-db man-pag
 * Double check that the initramfs generation was successful (`mkinitcpio -P`).
 * Say your prayers to the Omnissiah and reboot. The rest can be done without the installation live environment.
 
+## Plymouth
+* This is purely cosmetic, but it is easy to setup and makes the whole early booting process much nicer to look at and interact with.
+* Basically [read and follow the relevant page](https://wiki.archlinux.org/title/Plymouth).
+* Remember to apped
+  * `splash` (and `quiet`) to the kernel parameters (e.g. `/etc/cmdline.d/standard.conf`)
+  * `plymouth` in the initramfs generator configuration (i.e. `/etc/mkinitcpio.conf` hooks, right after `systemd` hook).
+* Select a theme!
+  * There are many and very cool looking! But I like stock stuff, so I went for `bgrt`.
+  * `sudo plymouth-set-default-theme -R bgrt`
+  * To be fair, I like the smooth transition: OEM logo -> OEM logo + arch logo at the bottom -> password prompt + arch logo at the bottom -> GDM with arch logo at the bottom
 
+## Secure Boot
 
-# The following part is yet to be updated
+* For configuring secure boot I have used the quite recent (`systemd v257+`) [`systemd-ukify` configuration](https://wiki.archlinux.org/title/Unified_Extensible_Firmware_Interface/Secure_Boot#Assisted_process_with_systemd), and not `sbctl`.
+* [**READ THIS VERY IMPORTANT WARNING**](https://wiki.archlinux.org/title/Unified_Extensible_Firmware_Interface/Secure_Boot#Using_your_own_keys)
+  * I had no problem with my (old) Thinkpad E560, using the BIOS/UEFI menu to remove the platform key, but be warned.
+* Follow the instructions and just take care to:
+  * Set a (strong) firmware Supervisor Password
+  * Put the firmware to Setup Mode properly
+  * Manually sign the boot loader
+  * Add the [recommended pacman hook](https://wiki.archlinux.org/title/Systemd-boot#Signing_for_Secure_Boot).
+    * `/path/to/keyfile.key` = `/etc/kernel/secure-boot-private-key.pem`
+    * `/path/to/certificate.crt` = `/etc/kernel/secure-boot-certificate.pem`
+  * Configure the ESP for auto-enrollment
+  * set `secure-boot-enroll force` in `/boot/loader/loader.conf` and reboot to enroll the keys in the firmware.
+    * I have later commented out this option, just in case.
+  * Actually enable Secure Boot and test it.
+    * A successful boot is already a win, but also check with `sudo bootctl status`
+
+## TPM
+
+Currently [there is a bug](https://github.com/systemd/systemd/pull/39089) with older firmware (TCG < 1.1) that do not support `GetPcrBanks()`. Thus, on my Lenovo Thinkpad E560, `systemd` does not recognize the TPM 2.0. Once this is fixed I will update this part.
 
 ## User configuration
-The system is now able to boot and is fully functional. However, you may want to set a non root user account.
+The system is now able to boot and is fully functional. However, you may want to set a non root user account. Also, you should go through the [General Recommendations.](https://wiki.archlinux.org/title/General_recommendations) 
 
 ### Install your favourite shell
 Install a different shell, if you wish so. I prefer `zsh`
@@ -82,41 +116,24 @@ and adding a line
 ```
 
 ### Installing the desktop environment
-Now it is a good time to [install](https://wiki.archlinux.org/title/General_recommendations#Graphical_user_interface) the graphical part of the system, such as the needed drivers and desktop environment. I will expand more upon this in the near future, once the more security-related things are covered.
+Now it is a good time to [install](https://wiki.archlinux.org/title/General_recommendations#Graphical_user_interface) the graphical part of the system, such as the needed drivers and desktop environment.
 
-As a general recommendation, I suggest avoiding the hassle to set all the graphical user interface manually, as I did before, and simply pick a desktop environment. I switched to [GNOME](https://wiki.archlinux.org/title/GNOME).
+As a general recommendation, I suggest avoiding the temptation (and hassle) to set all the graphical user interface manually, as I did before, and simply pick a desktop environment. You may have noticed that I like (good) stock stuff, so my choice is obviously [GNOME](https://wiki.archlinux.org/title/GNOME).
 
-### Secure boot
-With the current encryption setup, the kernel image and the initramfs cannot be modified by an attacker when the data is at rest. However, there is one single file that remains unencrypted and unprotected: `/efi/EFI/GRUB/grubx64.efi`. This file is indeed the bootloader. Because of this, the system is vulnerable to [Evil Maid attacks](https://www.schneier.com/blog/archives/2009/10/evil_maid_attac.html).
+## Ideas for future projects
+I would like to implement `apparmor` and other in-system security features. SELinux is cool, but it is not officially supported and requires a big reliance on the AUR, which I prefer to use as little as possible.
 
-Evil maid attacks are relatively sophisticated and complex, and require (temporary) physical access to the target machine. However, it is still interesting to mitigate such vulnerability. A possible solution is using UEFI Secure Boot, and [`cryptboot`](https://github.com/xmikos/cryptboot) makes its setup simple enough.
+## In Case of Emergency - Rescuing a non bootable system
+Yes, this may happen. In fact, it happened very recently to me with [this upstream bug](https://github.com/systemd/systemd/issues/38932).
 
-Start by booting into your machine UEFI firmware setup utility. There, enable Secure Boot. In order to enroll your own keys into the firmware, Secure Boot needs to be in Setup Mode. In order to enter in Setup Mode, clear all preloaded Secure Boot keys. Also, setup the UEFI supervisor password, so that no unauthorised party can boot into the UEFI setup utlity and disable Secure Boot.
-
-Install [`yay`](https://github.com/Jguer/yay#installation) or a similar package manager that handles the AUR packages and then install `cryptboot`
-```
-yay -S cryptboot
-```
-Generate your new UEFI Secure Boot keys
-```
-cryptboot-efikeys create
-```
-Enroll the keys into the UEFI firmware
-```
-cryptboot-efikeys enroll
-```
-`cryptboot` [does not support](https://github.com/xmikos/cryptboot/issues/2) single encrypted partition setups, so it is not possible to simply run the `cryptboot update-grub` command to update and sign the bootloader. Instead, do it manually:
-```
-grub-mkconfig -o /boot/grub/grub.cfg
-grub-install --target=x86_64-efi --boot-directory=/boot --efi-directory=/efi --bootloader-id=GRUB
-
-sudo sed -i ‘s/SecureBoot/SecureB00t/’ /efi/EFI/GRUB/grubx64.efi
-cryptboot-efikeys sign /efi/EFI/GRUB/grubx64.efi
-```
-> Note: if you have just recently installed your system, you can skip the first two commands.
-
-> [More info](https://wejn.org/2021/09/fixing-grub-verification-requested-nobody-cares/) about _that sed_
-
-> Use this commands to update GRUB (i.e. after a GRUB package upgrade, when you are told to run `grub-install` to use the new features included with the update).
-
-Reboot into the UEFI firmware setup utility and verify that Secure Boot is still active. Then reboot and check that you are able to normally boot into your system.
+My honest advice is to keep a dedicated USB with an Arch Linux bootable live environemnt (e.g. your live installation medium itself) in your bag or headphones case. Maybe update it once a year. The procedure to get into your unbootable system is as follows:
+* Get into the BIOS/UEFI and disable secure boot
+* Choose to boot from a temporary device, and boot the USB
+* Once inside the live environment:
+  * `lsblk` and identify the root (e.g. `sda2`) and ESP partition (e.g. `sda1`)
+  * `cryptsetup open /dev/sda2 root` to open the encrypted partition
+  * `mount /dev/mapper/root /mnt` to mount the unlocked root partition
+  * `mount /dev/sda1 /mnt/boot` to mount the ESP partition
+  * `arch-chroot /mnt`
+* You are now inside your normal installation.
+* _When we embark on a journey, we often discover more of ourselves than of the world_
