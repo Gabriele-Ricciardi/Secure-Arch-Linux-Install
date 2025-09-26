@@ -3,7 +3,14 @@ A collection of personal notes about my Arch Linux setup. It includes minimal pa
 
 2025/09/25 update: Since the time of writing this notes, there have been some interesting changes in Arch Linux. [This new official guide](https://wiki.archlinux.org/title/Dm-crypt/Encrypting_an_entire_system#LUKS_on_a_partition_with_TPM2_and_Secure_Boot) is available and is quite similar to this setup. Even though I use Arch (btw), I am not a fan of customisation. I like (good) stock systems. Indeed, I have changed some of my configurations in this guide to better adhere to some new standards shown in that guide (like [systemd GPT partition automounting](https://wiki.archlinux.org/title/Systemd#GPT_partition_automounting)).
 
-To avoid rewriting the whole Arch Linux installation guide, I have severely trimmed down this notes to just important or interesting parts, referencing the relevant steps.
+What changed:
+
+* To avoid rewriting the whole Arch Linux installation guide, I have severely trimmed down this notes to just important or interesting parts, referencing the relevant steps.
+   * This means the guide is no longer a full guide but a collection of notes.
+* Partitioning follows the discoverable partitions specifications, so we can use systemd automounting.
+   * This means setting the correct partitions type GUID so `fstab` is not needed anymore.
+* No more `GRUB`. I use `systemd-boot` instead.
+   * This means no more encryption password double prompt problem, so no more keyfile.
 
 ## Premise
 1. Take a read, understand, investigate and take notes about the [official installation guide](https://wiki.archlinux.org/title/Installation_guide).
@@ -33,47 +40,14 @@ pacstrap /mnt base base-devel linux linux-firmware networkmanager man-db man-pag
    * You know the drill about passwords. Nonetheless, just be reminded that in case the system is expected to offer any kind of networking service, such as `SSH` connections, extra care should be applied when considering a root password complexity and length.
 * I recommend installing `systemd-boot`, as [in the guide](https://wiki.archlinux.org/title/Dm-crypt/Encrypting_an_entire_system#Installing_the_boot_loader).
 * Double check that the initramfs generation was successful (`mkinitcpio -P`).
+* Say your prayers to the Omnissiah and reboot. The rest can be done without the installation live environment.
 
 
 
 # The following part is yet to be updated
 
-### Avoid encryption password double prompt
-With the current setup, at boot you will be prompted twice for the encryption password. This happens because the first time it is asked by GRUB to unlock the LUKS1 encrypted partition, `cryptroot`, the second time for the initramfs. This section explains how to configure the system to ask the password only once at boot, in GRUB. The way this works is by embedding a keyfile in the initramfs. This procedure is taken from the relative [Archwiki article](https://wiki.archlinux.org/title/dm-crypt/Encrypting_an_entire_system#Avoiding_having_to_enter_the_passphrase_twice).
-
-Create a keyfile and add it as LUKS key
-```
-dd bs=512 count=4 if=/dev/random of=/root/cryptroot.keyfile iflag=fullblock
-chmod 000 /root/cryptroot.keyfile
-cryptsetup -v luksAddKey /dev/sda2 /root/cryptroot.keyfile
-```
-> Note for future investigation: perhaps substitute `/dev/random` with `/dev/urandom`. The second one is the one generally suggested.
-
-Add the keyfile to the initramfs image by modifying `/etc/mkinitcpio.conf`, adding
-```
-FILES=(/root/cryptroot.keyfile)
-```
-Recreate the initramfs image
-```
-mkinitcpio -P
-```
-
-Secure the embedded keyfile
-```
-chmod 600 /boot/initramfs-linux*
-```
-
-Add (i.e. append) the keyfile option in `/etc/default/grub`
-```
-GRUB_CMDLINE_LINUX="... cryptkey=rootfs:/root/cryptroot.keyfile"
-```
-Re-generate the `grub.cfg` file
-```
-grub-mkconfig -o /boot/grub/grub.cfg
-```
-
 ## User configuration
-The system is now able to boot and is fully functional. However, you might want to set a non root user account.
+The system is now able to boot and is fully functional. However, you may want to set a non root user account.
 
 ### Install your favourite shell
 Install a different shell, if you wish so. I prefer `zsh`
