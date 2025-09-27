@@ -1,3 +1,5 @@
+[Trigger]
+Operation = Install
 Operation = Upgrade
 Type = Path
 Target = usr/lib/systemd/boot/efi/systemd-boot*.efi
@@ -5,6 +7,6 @@ Target = usr/lib/systemd/boot/efi/systemd-boot*.efi
 [Action]
 Description = Signing systemd-boot EFI binary for Secure Boot
 When = PostTransaction
-Exec = /bin/sh -c 'while read -r f; do /usr/lib/systemd/systemd-sbsign sign --private-key /etc/kernel/secure-boot-private-key.pem --certificate /etc/kernel/secure-boot-certificate.pem --output "${f}.signed" "$f"; done;'
+Exec = /bin/sh -c 'while read -r f; do /usr/lib/systemd/systemd-sbsign sign --private-key /path/to/keyfile.key --certificate /path/to/certificate.crt --output "${f}.signed" "$f"; done;'
 Depends = sh
 NeedsTargets
