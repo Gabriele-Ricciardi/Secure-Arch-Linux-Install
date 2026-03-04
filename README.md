@@ -50,7 +50,7 @@ pacstrap /mnt base base-devel linux linux-firmware networkmanager man-db man-pag
 ## Plymouth
 * This is purely cosmetic, but it is easy to setup and makes the whole early booting process much nicer to look at and interact with.
 * Basically [read and follow the relevant page](https://wiki.archlinux.org/title/Plymouth).
-* Remember to apped
+* Remember to append
   * `splash` (and `quiet`) to the kernel parameters (e.g. `/etc/cmdline.d/standard.conf`)
   * `plymouth` in the initramfs generator configuration (i.e. `/etc/mkinitcpio.conf` hooks, right after `systemd` hook).
 * Select a theme!
