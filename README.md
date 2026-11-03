@@ -1,26 +1,27 @@
 # Secure-Arch-Linux-Install
 A collection of personal notes about my Arch Linux setup. It includes minimal partitioning, full disk encryption, secure boot, and more security features.
 
-2025/09/25 update: Since the time of writing this notes, there have been some interesting changes in Arch Linux. [This new official guide](https://wiki.archlinux.org/title/Dm-crypt/Encrypting_an_entire_system#LUKS_on_a_partition_with_TPM2_and_Secure_Boot) is available and is quite similar to my original setup. Even though I use Arch (btw), I am not a fan of customisation. I like (good) stock systems. Indeed, I have changed much of my previous configuration to better adhere to some new standards shown in that guide (like [systemd GPT partition automounting](https://wiki.archlinux.org/title/Systemd#GPT_partition_automounting)).
+2025/09/25 update: Since the time of writing these notes, there have been some interesting changes in Arch Linux. [This new official guide](https://wiki.archlinux.org/title/Dm-crypt/Encrypting_an_entire_system#LUKS_on_a_partition_with_TPM2_and_Secure_Boot) is available and is quite similar to my original setup. Even though I use Arch (btw), I am not a fan of customisation. I like (good) stock systems. Indeed, I have changed much of my previous configuration to better adhere to some new standards shown in that guide (like [systemd GPT partition automounting](https://wiki.archlinux.org/title/Systemd#GPT_partition_automounting)).
 
 What changed:
 
-* To avoid rewriting the whole Arch Linux installation guide, I have severely trimmed down this notes to just important or interesting parts, referencing the relevant steps.
+* To avoid rewriting the whole Arch Linux installation guide, I have severely trimmed down these notes to just important or interesting parts, referencing the relevant steps.
    * This means the guide is no longer a full guide but a collection of notes.
 * Partitioning follows the discoverable partitions specifications, so we can use systemd automounting.
-   * This means setting the correct partitions type GUID so `fstab` is not needed anymore.
+   * This means setting the correct partitions type GUID so `fstab` and `crypttab` are no longer needed.
 * No more `GRUB`. I use `systemd-boot` instead.
    * This means no more encryption password double prompt problem, so no more keyfile.
+   * Remember to enable `systemd-boot-update.service`
  * Secure Boot configuration now uses `systemd-ukify`, and not [`cryptboot`](https://github.com/xmikos/cryptboot) (which I had long since replaced with `sbctl` anyway).
-   * This means the AUR is not required anymore for this setup.
+   * This means the AUR is not required anymore for this setup. [Here is why you should avoid the AUR](https://archlinux.org/news/active-aur-malicious-packages-incident/).
  * I now use Plymouth
    * This makes the booting process look very nice!
  * I have uploaded some of my configuration files
 
 ## Premise
 1. Take a read, understand, investigate and take notes about the [official installation guide](https://wiki.archlinux.org/title/Installation_guide).
-2. Identify your needs, whishes, and possible pain points. Arch Linux is extremely customisable, so you should approach it with a rough idea of what you want.
-3. If you have an interest in security and want to try out some features, you may find this notes of interest.
+2. Identify your needs, wishes, and possible pain points. Arch Linux is extremely customisable, so you should approach it with a rough idea of what you want.
+3. If you have an interest in security and want to try out some features, you may find these notes of interest.
 
 ## Pre-installation
 * Make an effort and [verify](https://wiki.archlinux.org/title/Installation_guide#Verify_signature) the ISO GPG signature.
@@ -78,7 +79,9 @@ pacstrap /mnt base base-devel linux linux-firmware networkmanager man-db man-pag
 
 ## TPM
 
-Currently [there is a bug](https://github.com/systemd/systemd/pull/39089) with older firmware (TCG < 1.1) that do not support `GetPcrBanks()`. Thus, on my Lenovo Thinkpad E560, `systemd` does not recognize the TPM 2.0. Once this is fixed I will update this part.
+I decided not to use TPM. This is debatable, but here is why:
+* TPM alone without a PIN would unlock the disk to anyone and boot the OS normally, which is a net downgrade from a passphrase setup, like the one in this guide.
+* TPM with a PIN is a possibility, but a PIN is weaker than a passphrase, and there is an added risk of leakage of the sealed TPM key for no real benefit.
 
 ## User configuration
 The system is now able to boot and is fully functional. However, you may want to set a non root user account. Also, you should go through the [General Recommendations.](https://wiki.archlinux.org/title/General_recommendations) 
@@ -126,7 +129,7 @@ I would like to implement `apparmor` and other in-system security features. SELi
 ## In Case of Emergency - Rescuing a non bootable system
 Yes, this may happen. In fact, it happened very recently to me with [this upstream bug](https://github.com/systemd/systemd/issues/38932).
 
-My honest advice is to keep a dedicated USB with an Arch Linux bootable live environemnt (e.g. your live installation medium itself) in your bag or headphones case. Maybe update it once a year. The procedure to get into your unbootable system is as follows:
+My honest advice is to keep a dedicated USB with an Arch Linux bootable live environment (e.g. your live installation medium itself) in your bag or headphones case. Maybe update it once a year. The procedure to get into your unbootable system is as follows:
 * Get into the BIOS/UEFI and disable secure boot
 * Choose to boot from a temporary device, and boot the USB
 * Once inside the live environment:
@@ -135,5 +138,5 @@ My honest advice is to keep a dedicated USB with an Arch Linux bootable live env
   * `mount /dev/mapper/root /mnt` to mount the unlocked root partition
   * `mount /dev/sda1 /mnt/boot` to mount the ESP partition
   * `arch-chroot /mnt`
-* You are now inside your normal installation.
+* You are now inside your normal installation. Good luck.
 * _When we embark on a journey, we often discover more of ourselves than of the world_
